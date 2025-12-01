@@ -5,6 +5,7 @@
 
 #define USE_OLD_FUNCTIONS
 #include "strtoupperlower.h"
+#include "common.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -15,13 +16,16 @@
 #include <mysql.h>
 #include "dbf.h"
 
-int		verbose = 0, upper = 0, lower = 0, create = 0;
-long	precision = 6;
-char	*host = NULL;
-char	*dbase = NULL;
-char	*table = NULL;
-char    *pass = NULL;
-char    *user = NULL;
+/* Conversion options */
+int verbose = 0, upper = 0, lower = 0, create = 0;
+long precision = 6;
+
+/* Connection options */
+char *host = NULL;
+char *dbase = NULL;
+char *table = NULL;
+char *pass = NULL;
+char *user = NULL;
 
 void usage(void);
 

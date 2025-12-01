@@ -48,11 +48,11 @@ BZIP2=/usr/bin/bzip2
 VERSION=1.14
 USE_OLD_FUNCTIONS=1
 
-OBJS=dbf.o endian.o libdbf.a dbf2mysql.o mysql2dbf.o strtoupperlower.o
+OBJS=dbf.o endian.o libdbf.a dbf2mysql.o mysql2dbf.o strtoupperlower.o common.o
 
 all: dbf2mysql mysql2dbf
 
-libdbf.a: dbf.o endian.o strtoupperlower.o
+libdbf.a: dbf.o endian.o strtoupperlower.o common.o
 	$(AR) rcs libdbf.a $^
 
 dbf2mysql: dbf2mysql.o libdbf.a

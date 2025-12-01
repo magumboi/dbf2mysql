@@ -12,6 +12,7 @@
  */
 
 #include "strtoupperlower.h"
+#include "common.h"
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -23,16 +24,20 @@
 #include <mysql.h>
 #include "dbf.h"
 
+/* Conversion options */
 int verbose = 0, upper = 0, lower = 0, create = 0, fieldlow = 0, var_chars = 1;
 int express = 0;
 int null_fields = 0, trim = 0, quick = 0;
 char primary[11];
+
+/* Connection options */
 char *host = NULL;
 char *dbase = "test";
 char *table = "test";
 char *pass = NULL;
 char *user = NULL;
 
+/* Field list and substitution options */
 char *subarg = NULL;
 char *flist = NULL;
 char *indexes = NULL;
@@ -310,11 +315,12 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
     char *query, *vpos, *pos;
     char str[257], *cvt = NULL, *s;
     u_long val_len = 0;
-    char *datafile = NULL;
+    char datafile[32];
     FILE *fconv, *tempfile = NULL;
     int quote_field;
     u_long val_used;
     int base_pos;
+    int tempfd = -1;
 
     /* Max Number of characters that can be stored before checking buffer size */
 #define VAL_EXTRA 16
@@ -332,10 +338,9 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
                 dbf_close(&dbh);
                 exit(1);
             }
-            for (i = 0, fgets(str, 256, fconv); (i < nc * 2) && (str != NULL); i++) {
+            for (i = 0; (i < nc * 2) && (fgets(str, 256, fconv) != NULL); i++) {
                 cvt[i++] = atoi(strtok(str, " \t"));
                 cvt[i] = atoi(strtok(NULL, " \t"));
-                fgets(str, 256, fconv);
             }
             cvt[i] = '\0';
         }
@@ -372,11 +377,19 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
         if (express)
         strcat(query, "NULL,NULL,");
     else /* if specified -q create file for 'LOAD DATA' */ {
-        datafile = tempnam("/tmp", "d2my");
-        tempfile = fdopen(open(datafile, O_WRONLY | O_CREAT | O_EXCL,
-                0600), "wt");
-        if (tempfile == NULL || datafile == NULL) {
+        strcpy(datafile, "/tmp/d2myXXXXXX");
+        tempfd = mkstemp(datafile);
+        if (tempfd == -1) {
+            fprintf(stderr, "Cannot create temporary file\n");
+            free(query);
+            return;
+        }
+        tempfile = fdopen(tempfd, "w");
+        if (tempfile == NULL) {
             fprintf(stderr, "Cannot open file '%s' for writing\n", datafile);
+            close(tempfd);
+            unlink(datafile);
+            free(query);
             return;
         }
         query[0] = '\0';
@@ -533,7 +546,6 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
         if (unlink(datafile) == -1) {
             fprintf(stderr, "Error while removing temporary file '%s'.\n", datafile);
         }
-        free(datafile);
     }
 }
 
