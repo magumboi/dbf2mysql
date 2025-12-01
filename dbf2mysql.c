@@ -12,6 +12,7 @@
  */
 
 #include "strtoupperlower.h"
+#include "common.h"
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -23,16 +24,21 @@
 #include <mysql.h>
 #include "dbf.h"
 
+/* Conversion options */
 int verbose = 0, upper = 0, lower = 0, create = 0, fieldlow = 0, var_chars = 1;
 int express = 0;
 int null_fields = 0, trim = 0, quick = 0;
 char primary[11];
+
+/* Connection options */
 char *host = NULL;
 char *dbase = "test";
 char *table = "test";
 char *pass = NULL;
 char *user = NULL;
+unsigned int port = 0;  /* Use default MySQL port when 0 */
 
+/* Field list and substitution options */
 char *subarg = NULL;
 char *flist = NULL;
 char *indexes = NULL;
@@ -63,7 +69,7 @@ int check_table(MYSQL *sock, char *table) {
 
 void usage(void) {
     printf("dbf2mysql %s\n", VERSION);
-    printf("usage: dbf2mysql [-h hostname] [-d dbase] [-t table] [-p primary key]\n");
+    printf("usage: dbf2mysql [-h hostname] [-H port] [-d dbase] [-t table] [-p primary key]\n");
     printf("                 [-o field[,field]] [-s oldname=newname[,oldname=newname]]\n");
     printf("                 [-i field[,field]] [-c] [-f] [-F] [-n] [-r] [-u|-l] \n");
     printf("                 [-v[v]] [-x] [-q]  [-P password] [-U user] [-C charset]\n");
@@ -310,11 +316,12 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
     char *query, *vpos, *pos;
     char str[257], *cvt = NULL, *s;
     u_long val_len = 0;
-    char *datafile = NULL;
+    char datafile[32];
     FILE *fconv, *tempfile = NULL;
     int quote_field;
     u_long val_used;
     int base_pos;
+    int tempfd = -1;
 
     /* Max Number of characters that can be stored before checking buffer size */
 #define VAL_EXTRA 16
@@ -332,10 +339,9 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
                 dbf_close(&dbh);
                 exit(1);
             }
-            for (i = 0, fgets(str, 256, fconv); (i < nc * 2) && (str != NULL); i++) {
-                cvt[i++] = atoi(strtok(str, " \t"));
-                cvt[i] = atoi(strtok(NULL, " \t"));
-                fgets(str, 256, fconv);
+            for (i = 0; (i < nc * 2) && (fgets(str, 256, fconv) != NULL); i += 2) {
+                cvt[i] = atoi(strtok(str, " \t"));
+                cvt[i + 1] = atoi(strtok(NULL, " \t"));
             }
             cvt[i] = '\0';
         }
@@ -372,11 +378,19 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
         if (express)
         strcat(query, "NULL,NULL,");
     else /* if specified -q create file for 'LOAD DATA' */ {
-        datafile = tempnam("/tmp", "d2my");
-        tempfile = fdopen(open(datafile, O_WRONLY | O_CREAT | O_EXCL,
-                0600), "wt");
-        if (tempfile == NULL || datafile == NULL) {
+        strcpy(datafile, "/tmp/d2myXXXXXX");
+        tempfd = mkstemp(datafile);
+        if (tempfd == -1) {
+            fprintf(stderr, "Cannot create temporary file\n");
+            free(query);
+            return;
+        }
+        tempfile = fdopen(tempfd, "w");
+        if (tempfile == NULL) {
             fprintf(stderr, "Cannot open file '%s' for writing\n", datafile);
+            close(tempfd);
+            unlink(datafile);
+            free(query);
             return;
         }
         query[0] = '\0';
@@ -533,7 +547,6 @@ void do_inserts(MYSQL *SQLsock, char *table, dbhead *dbh) {
         if (unlink(datafile) == -1) {
             fprintf(stderr, "Error while removing temporary file '%s'.\n", datafile);
         }
-        free(datafile);
     }
 }
 
@@ -544,17 +557,20 @@ int main(int argc, char **argv) {
     extern char *optarg;
     char *query;
     dbhead *dbh;
-    char *charset;
+    char *charset = NULL;
 
     primary[0] = '\0';
 
-    while ((i = getopt(argc, argv, "xqfFrne:lucvi:h:p:d:t:s:o:U:P:C:")) != EOF) {
+    while ((i = getopt(argc, argv, "xqfFrne:lucvi:h:H:p:d:t:s:o:U:P:C:")) != EOF) {
         switch (i) {
             case 'P':
                 pass = (char *) strdup(optarg);
                 break;
             case 'U':
                 user = (char *) strdup(optarg);
+                break;
+            case 'H':
+                port = (unsigned int) atoi(optarg);
                 break;
             case 'x':
                 express = 1;
@@ -672,14 +688,14 @@ int main(int argc, char **argv) {
         printf("Making connection to MySQL-server\n");
     }
 
-    // Init mysql
+    /* Init mysql */
     if (!(mysql_init(&mysql))) {
         fprintf(stderr, "Can't initialize. Insufficient memory.");
         dbf_close(&dbh);
         exit(1);
     }
 
-    if (!(SQLsock = mysql_real_connect(&mysql, host, user, pass, NULL, 0, NULL, 0))) {
+    if (!(SQLsock = mysql_real_connect(&mysql, host, user, pass, NULL, port, NULL, 0))) {
         fprintf(stderr, "Couldn't get a connection with the ");
         fprintf(stderr, "designated host!\n");
         fprintf(stderr, "Detailed report: %s\n", mysql_error(&mysql));

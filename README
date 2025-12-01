@@ -75,6 +75,9 @@ behaviour:
 -h  host:
     Select the host where to insert into. Untested.
 
+-H  port:
+    Select the MySQL server port number. Defaults to 3306 if not specified.
+
 -F  Fixed length records (Else chars is saved as varchar)
 
 -n  Allow NULL values in fields
