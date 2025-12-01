@@ -36,6 +36,7 @@ char *dbase = "test";
 char *table = "test";
 char *pass = NULL;
 char *user = NULL;
+unsigned int port = 0;  /* Use default MySQL port when 0 */
 
 /* Field list and substitution options */
 char *subarg = NULL;
@@ -68,7 +69,7 @@ int check_table(MYSQL *sock, char *table) {
 
 void usage(void) {
     printf("dbf2mysql %s\n", VERSION);
-    printf("usage: dbf2mysql [-h hostname] [-d dbase] [-t table] [-p primary key]\n");
+    printf("usage: dbf2mysql [-h hostname] [-H port] [-d dbase] [-t table] [-p primary key]\n");
     printf("                 [-o field[,field]] [-s oldname=newname[,oldname=newname]]\n");
     printf("                 [-i field[,field]] [-c] [-f] [-F] [-n] [-r] [-u|-l] \n");
     printf("                 [-v[v]] [-x] [-q]  [-P password] [-U user] [-C charset]\n");
@@ -556,17 +557,20 @@ int main(int argc, char **argv) {
     extern char *optarg;
     char *query;
     dbhead *dbh;
-    char *charset;
+    char *charset = NULL;
 
     primary[0] = '\0';
 
-    while ((i = getopt(argc, argv, "xqfFrne:lucvi:h:p:d:t:s:o:U:P:C:")) != EOF) {
+    while ((i = getopt(argc, argv, "xqfFrne:lucvi:h:H:p:d:t:s:o:U:P:C:")) != EOF) {
         switch (i) {
             case 'P':
                 pass = (char *) strdup(optarg);
                 break;
             case 'U':
                 user = (char *) strdup(optarg);
+                break;
+            case 'H':
+                port = (unsigned int) atoi(optarg);
                 break;
             case 'x':
                 express = 1;
@@ -684,14 +688,14 @@ int main(int argc, char **argv) {
         printf("Making connection to MySQL-server\n");
     }
 
-    // Init mysql
+    /* Init mysql */
     if (!(mysql_init(&mysql))) {
         fprintf(stderr, "Can't initialize. Insufficient memory.");
         dbf_close(&dbh);
         exit(1);
     }
 
-    if (!(SQLsock = mysql_real_connect(&mysql, host, user, pass, NULL, 0, NULL, 0))) {
+    if (!(SQLsock = mysql_real_connect(&mysql, host, user, pass, NULL, port, NULL, 0))) {
         fprintf(stderr, "Couldn't get a connection with the ");
         fprintf(stderr, "designated host!\n");
         fprintf(stderr, "Detailed report: %s\n", mysql_error(&mysql));

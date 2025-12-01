@@ -26,12 +26,13 @@ char *dbase = NULL;
 char *table = NULL;
 char *pass = NULL;
 char *user = NULL;
+unsigned int port = 0;  /* Use default MySQL port when 0 */
 
 void usage(void);
 
 void usage(void) {
 	printf("mysql2dbf %s\n", VERSION);
-	printf("usage:\tmysql2dbf [-h host] [-u | -l] [-v[v]]\n");
+	printf("usage:\tmysql2dbf [-h host] [-H port] [-u | -l] [-v[v]]\n");
 	printf("\t\t\t[-q query] [-P password] [-U user] -d dbase -t table dbf-file\n");
 }
 
@@ -49,7 +50,7 @@ int main(int argc, char **argv) {
 	MYSQL_FIELD			*qfield;
 	u_long			numfields, numrows, t;
 
-	while ((i = getopt(argc, argv, "lucvq:h:d:t:p:U:P:")) != EOF) {
+	while ((i = getopt(argc, argv, "lucvq:h:H:d:t:p:U:P:")) != EOF) {
 		switch(i) {
 			case 'q':
 				query = strdup(optarg);
@@ -78,6 +79,9 @@ int main(int argc, char **argv) {
 				break;
 			case 'h':
 				host = (char *)strdup(optarg);
+				break;
+			case 'H':
+				port = (unsigned int)atoi(optarg);
 				break;
 			case 'd':
 				dbase = (char *)strdup(optarg);
@@ -137,28 +141,28 @@ int main(int argc, char **argv) {
 		printf("Making connection with mySQL-server\n");
 	}
 
-        mysql_init(&mysql);
+	mysql_init(&mysql);
         
-    if (!(SQLsock = mysql_real_connect(&mysql,host,user,pass, NULL, 0, NULL, 0))) {
-        fprintf(stderr, "Couldn't get a connection with the ");
-        fprintf(stderr, "designated host!\n");
-        fprintf(stderr, "Detailed report: %s\n", mysql_error(&mysql));
-        close(dbh->db_fd);
-        free(dbh);
-        exit(1);
-    }
+	if (!(SQLsock = mysql_real_connect(&mysql, host, user, pass, NULL, port, NULL, 0))) {
+		fprintf(stderr, "Couldn't get a connection with the ");
+		fprintf(stderr, "designated host!\n");
+		fprintf(stderr, "Detailed report: %s\n", mysql_error(&mysql));
+		close(dbh->db_fd);
+		free(dbh);
+		exit(1);
+	}
 
-    if (verbose > 1) {
-        printf("Selecting database\n");
-    }
+	if (verbose > 1) {
+		printf("Selecting database\n");
+	}
 
-    if ((mysql_select_db(SQLsock, dbase)) == -1) {
-        fprintf(stderr, "Couldn't select database %s.\n", dbase);
-        fprintf(stderr, "Detailed report: %s\n", mysql_error(SQLsock));
-        close(dbh->db_fd);
-        free(dbh);
-        mysql_close(SQLsock);
-        exit(1);
+	if ((mysql_select_db(SQLsock, dbase)) == -1) {
+		fprintf(stderr, "Couldn't select database %s.\n", dbase);
+		fprintf(stderr, "Detailed report: %s\n", mysql_error(SQLsock));
+		close(dbh->db_fd);
+		free(dbh);
+		mysql_close(SQLsock);
+		exit(1);
     }
 
 	if (verbose > 1) {
