@@ -2,4 +2,4 @@
 mysql2dbf
 dbf2mysql
 *.a
-
+_codeql*
