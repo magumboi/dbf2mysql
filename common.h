@@ -19,16 +19,18 @@
 /* Default values */
 #define DEFAULT_DATABASE "test"
 #define DEFAULT_TABLE    "test"
+#define DEFAULT_PORT     0       /* Use MySQL default when 0 */
 
 /* Configuration structure for database connection */
 typedef struct {
-    char *host;     /* MySQL server hostname */
-    char *user;     /* MySQL username */
-    char *pass;     /* MySQL password */
-    char *dbase;    /* Database name */
-    char *table;    /* Table name */
-    char *charset;  /* Character set */
-    int verbose;    /* Verbosity level (0-3) */
+    char *host;         /* MySQL server hostname */
+    char *user;         /* MySQL username */
+    char *pass;         /* MySQL password */
+    char *dbase;        /* Database name */
+    char *table;        /* Table name */
+    char *charset;      /* Character set */
+    unsigned int port;  /* MySQL server port (0 for default) */
+    int verbose;        /* Verbosity level (0-3) */
 } db_config;
 
 /* Initialize a db_config structure with defaults */

@@ -17,6 +17,7 @@ void db_config_init(db_config *cfg) {
     cfg->dbase = NULL;
     cfg->table = NULL;
     cfg->charset = NULL;
+    cfg->port = DEFAULT_PORT;
     cfg->verbose = 0;
 }
 
@@ -51,7 +52,7 @@ MYSQL *db_connect(MYSQL *mysql, const db_config *cfg) {
     }
     
     sock = mysql_real_connect(mysql, cfg->host, cfg->user, cfg->pass, 
-                              NULL, 0, NULL, 0);
+                              NULL, cfg->port, NULL, 0);
     if (!sock) {
         fprintf(stderr, "Couldn't connect to MySQL server!\n");
         fprintf(stderr, "Detailed report: %s\n", mysql_error(mysql));
@@ -68,11 +69,12 @@ MYSQL *db_connect(MYSQL *mysql, const db_config *cfg) {
     }
     
     if (cfg->charset != NULL) {
-        if (!mysql_set_character_set(mysql, cfg->charset)) {
-            if (cfg->verbose > 0) {
-                printf("Client character set: %s\n", 
-                       mysql_character_set_name(mysql));
-            }
+        if (mysql_set_character_set(mysql, cfg->charset) != 0) {
+            fprintf(stderr, "Failed to set character set: %s\n", 
+                    mysql_error(mysql));
+        } else if (cfg->verbose > 0) {
+            printf("Client character set: %s\n", 
+                   mysql_character_set_name(mysql));
         }
     }
     
